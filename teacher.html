@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>老师端</title>
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+
+<body>
+
+
+<div class="box">
+
+<h2>👩‍🏫 老师端</h2>
+
+
+<h3>创建学习任务</h3>
+
+
+<input id="title" placeholder="例如：Unit 5">
+
+
+<p>
+格式：英文 中文 词性（每行一个）
+</p>
+
+
+<textarea id="words">
+
+apple 苹果 n.
+banana 香蕉 n.
+beautiful 美丽 adj.
+
+</textarea>
+
+
+<button onclick="saveTask()">
+保存任务
+</button>
+
+
+<p id="msg"></p>
+
+
+</div>
+
+
+
+<script>
+
+function saveTask(){
+
+let tasks = JSON.parse(
+localStorage.getItem("tasks") || "[]"
+);
+
+
+tasks.push({
+
+title:
+document.getElementById("title").value,
+
+words:
+document.getElementById("words").value,
+
+date:
+new Date().toLocaleDateString()
+
+});
+
+
+localStorage.setItem(
+"tasks",
+JSON.stringify(tasks)
+);
+
+
+document.getElementById("msg").innerHTML =
+"✅ 任务保存成功";
+
+}
+
+
+</script>
+
+
+</body>
+
+</html>
