@@ -42,7 +42,13 @@ localStorage.getItem("tasks") || "[]"
 
 
 
-let taskList =
+let learned = JSON.parse(
+localStorage.getItem("learned") || "{}"
+);
+
+
+
+const taskList =
 document.getElementById("taskList");
 
 
@@ -50,8 +56,7 @@ document.getElementById("taskList");
 tasks.forEach((task,index)=>{
 
 
-let button =
-document.createElement("button");
+let button=document.createElement("button");
 
 
 button.innerHTML =
@@ -70,8 +75,8 @@ showTask(index);
 taskList.appendChild(button);
 
 
-
 });
+
 
 
 
@@ -80,29 +85,32 @@ taskList.appendChild(button);
 function showTask(index){
 
 
-let task = tasks[index];
+let task=tasks[index];
 
 
-let html = 
-"<h3>"+task.title+"</h3>";
+let html = `
+
+<h3>
+${task.title}
+</h3>
+
+<h4>
+📖 学习中
+</h4>
+
+`;
 
 
 
-html +=
-"<h4>📖 学习中</h4>";
+let learnedWords =
+learned[index] || [];
 
 
 
-let lines =
-task.words.split("\n");
+task.words.split("\n").forEach(line=>{
 
 
-
-lines.forEach(line=>{
-
-
-let data =
-line.trim().split(/\s+/);
+let data=line.trim().split(/\s+/);
 
 
 
@@ -117,7 +125,108 @@ let type=data[2] || "";
 
 
 
+// 已经学会的不显示在这里
+
+if(!learnedWords.includes(english)){
+
+
+html += wordCard(
+english,
+chinese,
+type,
+index,
+false
+);
+
+
+}
+
+
+
+}
+
+
+});
+
+
+
 html += `
+
+<hr>
+
+<h4>
+✅ 已会单词
+</h4>
+
+`;
+
+
+
+if(learnedWords.length===0){
+
+html += "<p>还没有已会单词</p>";
+
+}
+
+
+else{
+
+
+learnedWords.forEach(word=>{
+
+
+let line =
+task.words.split("\n")
+.find(x=>x.startsWith(word));
+
+
+let data =
+line.trim().split(/\s+/);
+
+
+
+html += wordCard(
+data[0],
+data[1],
+data[2]||"",
+index,
+true
+);
+
+
+
+});
+
+
+
+}
+
+
+
+document.getElementById("content").innerHTML =
+html;
+
+
+
+}
+
+
+
+
+
+
+
+
+function wordCard(
+english,
+chinese,
+type,
+taskIndex,
+isLearned
+){
+
+
+return `
 
 <div class="card">
 
@@ -141,38 +250,119 @@ ${english}
 
 <div class="right">
 
+
 ${chinese}
 
 <br>
+
 
 <small>
 ${type}
 </small>
 
 
+<br>
+
+
+<button onclick="${
+isLearned
+?
+`unlearn('${english}',${taskIndex})`
+:
+`learn('${english}',${taskIndex})`
+}">
+
+
+${isLearned ? "🔄重新学习":"✅已会"}
+
+
+</button>
+
+
 </div>
 
 
-
 </div>
+
 
 `;
 
+}
+
+
+
+
+
+
+
+
+function learn(word,index){
+
+
+if(!learned[index]){
+
+learned[index]=[];
+
+}
+
+
+if(!learned[index].includes(word)){
+
+
+learned[index].push(word);
+
 
 }
 
 
 
-});
+saveLearned();
 
 
-
-document.getElementById("content").innerHTML =
-html;
-
+showTask(index);
 
 
 }
+
+
+
+
+
+
+function unlearn(word,index){
+
+
+learned[index]=
+learned[index].filter(
+x=>x!==word
+);
+
+
+saveLearned();
+
+
+showTask(index);
+
+
+}
+
+
+
+
+
+function saveLearned(){
+
+
+localStorage.setItem(
+"learned",
+JSON.stringify(learned)
+);
+
+
+}
+
+
+
 
 
 
@@ -190,8 +380,9 @@ speech.lang="en-US";
 speech.rate=0.8;
 
 
-speechSynthesis.speak(speech);
-
+speechSynthesis.speak(
+speech
+);
 
 
 }
