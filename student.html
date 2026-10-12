@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>学生端</title>
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+
+<body>
+
+
+<div class="box">
+
+
+<h2>📚 学生学习</h2>
+
+
+<div id="taskList"></div>
+
+
+<div id="content"></div>
+
+
+</div>
+
+
+
+<script>
+
+
+let tasks = JSON.parse(
+localStorage.getItem("tasks") || "[]"
+);
+
+
+
+let taskList =
+document.getElementById("taskList");
+
+
+
+tasks.forEach((task,index)=>{
+
+
+let button =
+document.createElement("button");
+
+
+button.innerHTML =
+task.title || "学习任务"+(index+1);
+
+
+
+button.onclick=function(){
+
+showTask(index);
+
+};
+
+
+
+taskList.appendChild(button);
+
+
+
+});
+
+
+
+
+
+function showTask(index){
+
+
+let task = tasks[index];
+
+
+let html = 
+"<h3>"+task.title+"</h3>";
+
+
+
+html +=
+"<h4>📖 学习中</h4>";
+
+
+
+let lines =
+task.words.split("\n");
+
+
+
+lines.forEach(line=>{
+
+
+let data =
+line.trim().split(/\s+/);
+
+
+
+if(data.length>=2){
+
+
+let english=data[0];
+
+let chinese=data[1];
+
+let type=data[2] || "";
+
+
+
+html += `
+
+<div class="card">
+
+
+<div class="left">
+
+
+<button onclick="speak('${english}')">
+🔊
+</button>
+
+
+<span class="word">
+${english}
+</span>
+
+
+</div>
+
+
+
+<div class="right">
+
+${chinese}
+
+<br>
+
+<small>
+${type}
+</small>
+
+
+</div>
+
+
+
+</div>
+
+`;
+
+
+}
+
+
+
+});
+
+
+
+document.getElementById("content").innerHTML =
+html;
+
+
+
+}
+
+
+
+
+function speak(word){
+
+
+let speech =
+new SpeechSynthesisUtterance(word);
+
+
+speech.lang="en-US";
+
+
+speech.rate=0.8;
+
+
+speechSynthesis.speak(speech);
+
+
+
+}
+
+
+
+</script>
+
+
+</body>
+
+</html>
