@@ -1,397 +1,332 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
-
-<meta charset="UTF-8">
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>学生端</title>
-
-<link rel="stylesheet" href="style.css">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学生端</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
-
 <body>
-
-
-<div class="box">
-
-
-<h2>📚 学生学习</h2>
-
-
-<div id="taskList"></div>
-
-
-<div id="content"></div>
-
-
-</div>
-
-
-
-<script>
-
-
-let tasks = JSON.parse(
-localStorage.getItem("tasks") || "[]"
-);
-
-
-
-let learned = JSON.parse(
-localStorage.getItem("learned") || "{}"
-);
-
-
-
-const taskList =
-document.getElementById("taskList");
-
-
-
-tasks.forEach((task,index)=>{
-
-
-let button=document.createElement("button");
-
-
-button.innerHTML =
-task.title || "学习任务"+(index+1);
-
-
-
-button.onclick=function(){
-
-showTask(index);
-
-};
-
-
-
-taskList.appendChild(button);
-
-
-});
-
-
-
-
-
-
-function showTask(index){
-
-
-let task=tasks[index];
-
-
-let html = `
-
-<h3>
-${task.title}
-</h3>
-
-<h4>
-📖 学习中
-</h4>
-
-`;
-
-
-
-let learnedWords =
-learned[index] || [];
-
-
-
-task.words.split("\n").forEach(line=>{
-
-
-let data=line.trim().split(/\s+/);
-
-
-
-if(data.length>=2){
-
-
-let english=data[0];
-
-let chinese=data[1];
-
-let type=data[2] || "";
-
-
-
-// 已经学会的不显示在这里
-
-if(!learnedWords.includes(english)){
-
-
-html += wordCard(
-english,
-chinese,
-type,
-index,
-false
-);
-
-
-}
-
-
-
-}
-
-
-});
-
-
-
-html += `
-
-<hr>
-
-<h4>
-✅ 已会单词
-</h4>
-
-`;
-
-
-
-if(learnedWords.length===0){
-
-html += "<p>还没有已会单词</p>";
-
-}
-
-
-else{
-
-
-learnedWords.forEach(word=>{
-
-
-let line =
-task.words.split("\n")
-.find(x=>x.startsWith(word));
-
-
-let data =
-line.trim().split(/\s+/);
-
-
-
-html += wordCard(
-data[0],
-data[1],
-data[2]||"",
-index,
-true
-);
-
-
-
-});
-
-
-
-}
-
-
-
-document.getElementById("content").innerHTML =
-html;
-
-
-
-}
-
-
-
-
-
-
-
-
-function wordCard(
-english,
-chinese,
-type,
-taskIndex,
-isLearned
-){
-
-
-return `
-
-<div class="card">
-
-
-<div class="left">
-
-
-<button onclick="speak('${english}')">
-🔊
-</button>
-
-
-<span class="word">
-${english}
-</span>
-
-
-</div>
-
-
-
-<div class="right">
-
-
-${chinese}
-
-<br>
-
-
-<small>
-${type}
-</small>
-
-
-<br>
-
-
-<button onclick="${
-isLearned
-?
-`unlearn('${english}',${taskIndex})`
-:
-`learn('${english}',${taskIndex})`
-}">
-
-
-${isLearned ? "🔄重新学习":"✅已会"}
-
-
-</button>
-
-
-</div>
-
-
-</div>
-
-
-`;
-
-}
-
-
-
-
-
-
-
-
-function learn(word,index){
-
-
-if(!learned[index]){
-
-learned[index]=[];
-
-}
-
-
-if(!learned[index].includes(word)){
-
-
-learned[index].push(word);
-
-
-}
-
-
-
-saveLearned();
-
-
-showTask(index);
-
-
-}
-
-
-
-
-
-
-function unlearn(word,index){
-
-
-learned[index]=
-learned[index].filter(
-x=>x!==word
-);
-
-
-saveLearned();
-
-
-showTask(index);
-
-
-}
-
-
-
-
-
-function saveLearned(){
-
-
-localStorage.setItem(
-"learned",
-JSON.stringify(learned)
-);
-
-
-}
-
-
-
-
-
-
-
-function speak(word){
-
-
-let speech =
-new SpeechSynthesisUtterance(word);
-
-
-speech.lang="en-US";
-
-
-speech.rate=0.8;
-
-
-speechSynthesis.speak(
-speech
-);
-
-
-}
-
-
-
-</script>
-
-
+  <div class="box">
+    <a class="back-link" href="index.html">← 返回首页</a>
+    <h2>📚 学生学习</h2>
+
+    <div id="taskList" class="task-buttons"></div>
+    <div id="content"></div>
+  </div>
+
+  <script>
+    function stableId(prefix, value) {
+      let hash = 0;
+
+      for (let i = 0; i < value.length; i++) {
+        hash =
+          ((hash << 5) -
+            hash +
+            value.charCodeAt(i)) |
+          0;
+      }
+
+      return (
+        prefix +
+        "-" +
+        Math.abs(hash).toString(36)
+      );
+    }
+
+    function parseLegacyWords(text, taskId) {
+      return text
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          const parts = line.includes("|")
+            ? line
+                .split("|")
+                .map(part => part.trim())
+            : line.split(/\s+/);
+
+          const english = parts[0] || "";
+
+          return {
+            id: stableId(
+              "item",
+              taskId +
+                "|" +
+                index +
+                "|" +
+                english
+            ),
+            english,
+            chinese: parts[1] || "",
+            type: parts.slice(2).join(" ")
+          };
+        })
+        .filter(
+          item => item.english && item.chinese
+        );
+    }
+
+    function loadTasks() {
+      try {
+        return JSON.parse(
+          localStorage.getItem("tasks") ||
+            "[]"
+        ).map((task, index) => {
+          const id =
+            task.id ||
+            stableId(
+              "task",
+              index +
+                "|" +
+                (task.title || "")
+            );
+
+          const items = Array.isArray(
+            task.items
+          )
+            ? task.items
+            : parseLegacyWords(
+                task.words || "",
+                id
+              );
+
+          return {
+            ...task,
+            id,
+            items
+          };
+        });
+      } catch (error) {
+        return [];
+      }
+    }
+
+    const tasks = loadTasks();
+
+    let learned = JSON.parse(
+      localStorage.getItem("learnedV2") ||
+        "{}"
+    );
+
+    function migrateLearned() {
+      if (Object.keys(learned).length) {
+        return;
+      }
+
+      const oldLearned = JSON.parse(
+        localStorage.getItem("learned") ||
+          "{}"
+      );
+
+      tasks.forEach((task, index) => {
+        (oldLearned[index] || []).forEach(
+          word => {
+            const item = task.items.find(
+              entry =>
+                entry.english === word
+            );
+
+            if (item) {
+              learned[item.id] = true;
+            }
+          }
+        );
+      });
+
+      saveLearned();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(
+        /[&<>'"]/g,
+        char =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "'": "&#39;",
+            '"': "&quot;"
+          })[char]
+      );
+    }
+
+    function renderTaskButtons() {
+      const list =
+        document.getElementById("taskList");
+
+      if (!tasks.length) {
+        list.innerHTML =
+          '<p class="empty">还没有学习任务，请先到家长端创建。</p>';
+        return;
+      }
+
+      list.innerHTML = tasks
+        .map(
+          (task, index) => `
+            <button
+              type="button"
+              onclick="showTask(${index})"
+            >
+              ${escapeHtml(
+                task.title ||
+                  `学习任务 ${index + 1}`
+              )}
+            </button>
+          `
+        )
+        .join("");
+    }
+
+    function showTask(index) {
+      const task = tasks[index];
+
+      const learningItems =
+        task.items.filter(
+          item => !learned[item.id]
+        );
+
+      const learnedItems =
+        task.items.filter(
+          item => learned[item.id]
+        );
+
+      let html = `
+        <h3>${escapeHtml(task.title)}</h3>
+
+        <p class="progress">
+          已学会 ${learnedItems.length} /
+          ${task.items.length}
+        </p>
+
+        <h4>📖 学习中</h4>
+      `;
+
+      html += learningItems.length
+        ? learningItems
+            .map(item =>
+              wordCard(item, index, false)
+            )
+            .join("")
+        : '<p class="empty">太棒了，这个任务已经全部学会！</p>';
+
+      html += `
+        <hr>
+        <h4>✅ 已会内容</h4>
+      `;
+
+      html += learnedItems.length
+        ? learnedItems
+            .map(item =>
+              wordCard(item, index, true)
+            )
+            .join("")
+        : '<p class="empty">还没有已会内容。</p>';
+
+      document.getElementById(
+        "content"
+      ).innerHTML = html;
+    }
+
+    function wordCard(
+      item,
+      taskIndex,
+      isLearned
+    ) {
+      const label = item.type || "";
+
+      return `
+        <div class="card">
+          <div class="left">
+            <button
+              class="speak-button"
+              type="button"
+              onclick='speak(${JSON.stringify(
+                item.english
+              )})'
+              aria-label="朗读 ${escapeHtml(
+                item.english
+              )}"
+            >
+              🔊
+            </button>
+
+            <span class="word">
+              ${escapeHtml(item.english)}
+            </span>
+          </div>
+
+          <div class="right">
+            ${escapeHtml(item.chinese)}
+            <br>
+
+            ${
+              label
+                ? `
+                  <small>
+                    ${escapeHtml(label)}
+                  </small>
+                  <br>
+                `
+                : ""
+            }
+
+            <button
+              class="learn-button"
+              type="button"
+              onclick="toggleLearned(
+                '${item.id}',
+                ${taskIndex},
+                ${isLearned}
+              )"
+            >
+              ${
+                isLearned
+                  ? "🔄 重新学习"
+                  : "✅ 已会"
+              }
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleLearned(
+      itemId,
+      taskIndex,
+      isLearned
+    ) {
+      if (isLearned) {
+        delete learned[itemId];
+      } else {
+        learned[itemId] = true;
+      }
+
+      saveLearned();
+      showTask(taskIndex);
+    }
+
+    function saveLearned() {
+      localStorage.setItem(
+        "learnedV2",
+        JSON.stringify(learned)
+      );
+    }
+
+    function speak(text) {
+      speechSynthesis.cancel();
+
+      const speech =
+        new SpeechSynthesisUtterance(text);
+
+      speech.lang = "en-US";
+      speech.rate = 0.8;
+
+      speechSynthesis.speak(speech);
+    }
+
+    migrateLearned();
+    renderTaskButtons();
+  </script>
 </body>
-
 </html>
