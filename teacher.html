@@ -1,96 +1,427 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>老师端</title>
-
-<link rel="stylesheet" href="style.css">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家长端</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
-
 <body>
+  <div class="box">
+    <a class="back-link" href="index.html">← 返回首页</a>
+    <h2>👩‍🏫 家长端</h2>
 
+    <section class="panel">
+      <h3 id="formHeading">创建学习任务</h3>
 
-<div class="box">
+      <label for="title">任务名称</label>
+      <input id="title" placeholder="例如：Unit 5">
 
-<h2>👩‍🏫 老师端</h2>
+      <label for="words">学习内容</label>
+      <p class="hint">每行一条：英文 | 中文 | 词性（词性可不填）</p>
 
+      <textarea
+        id="words"
+        placeholder="apple | 苹果 | n.&#10;take care of | 照顾&#10;be interested in | 对……感兴趣"
+      ></textarea>
 
-<h3>创建学习任务</h3>
+      <div class="actions">
+        <button id="saveButton" type="button" onclick="saveTask()">
+          保存任务
+        </button>
 
+        <button
+          id="cancelButton"
+          class="secondary hidden"
+          type="button"
+          onclick="cancelEdit()"
+        >
+          取消修改
+        </button>
+      </div>
 
-<input id="title" placeholder="例如：Unit 5">
+      <p id="msg" class="message" aria-live="polite"></p>
+    </section>
 
+    <section>
+      <h3>已有任务</h3>
+      <div id="taskManager"></div>
+    </section>
+  </div>
 
-<p>
-格式：英文 中文 词性（每行一个）
-</p>
+  <script>
+    let tasks = loadTasks();
+    let editingTaskId = null;
 
+    function makeId(prefix) {
+      return (
+        prefix +
+        "-" +
+        Date.now().toString(36) +
+        "-" +
+        Math.random().toString(36).slice(2, 8)
+      );
+    }
 
-<textarea id="words">
+    function stableId(prefix, value) {
+      let hash = 0;
 
-apple 苹果 n.
-banana 香蕉 n.
-beautiful 美丽 adj.
+      for (let i = 0; i < value.length; i++) {
+        hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+      }
 
-</textarea>
+      return prefix + "-" + Math.abs(hash).toString(36);
+    }
 
+    function parseLines(text, taskId) {
+      return text
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          let parts;
 
-<button onclick="saveTask()">
-保存任务
-</button>
+          if (line.includes("|")) {
+            parts = line.split("|").map(part => part.trim());
+          } else {
+            parts = line.split(/\s+/);
+          }
 
+          const english = parts[0] || "";
+          const chinese = parts[1] || "";
+          const type = parts.slice(2).join(" ");
 
-<p id="msg"></p>
+          return {
+            id: stableId(
+              "item",
+              taskId + "|" + index + "|" + english
+            ),
+            english,
+            chinese,
+            type
+          };
+        })
+        .filter(item => item.english && item.chinese);
+    }
 
+    function normalizeTask(task, index) {
+      const taskId =
+        task.id ||
+        stableId(
+          "task",
+          index + "|" + (task.title || "")
+        );
 
-</div>
+      const items = Array.isArray(task.items)
+        ? task.items.map((item, itemIndex) => ({
+            id:
+              item.id ||
+              stableId(
+                "item",
+                taskId +
+                  "|" +
+                  itemIndex +
+                  "|" +
+                  item.english
+              ),
+            english: item.english || "",
+            chinese: item.chinese || "",
+            type: item.type || ""
+          }))
+        : parseLines(task.words || "", taskId);
 
+      return {
+        ...task,
+        id: taskId,
+        items
+      };
+    }
 
+    function loadTasks() {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem("tasks") || "[]"
+        );
 
-<script>
+        const normalized = saved.map(normalizeTask);
 
-function saveTask(){
+        localStorage.setItem(
+          "tasks",
+          JSON.stringify(normalized)
+        );
 
-let tasks = JSON.parse(
-localStorage.getItem("tasks") || "[]"
-);
+        return normalized;
+      } catch (error) {
+        return [];
+      }
+    }
 
+    function saveAllTasks() {
+      localStorage.setItem(
+        "tasks",
+        JSON.stringify(tasks)
+      );
+    }
 
-tasks.push({
+    function escapeHtml(value) {
+      return String(value).replace(
+        /[&<>'"]/g,
+        char =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "'": "&#39;",
+            '"': "&quot;"
+          })[char]
+      );
+    }
 
-title:
-document.getElementById("title").value,
+    function saveTask() {
+      const title = document
+        .getElementById("title")
+        .value.trim();
 
-words:
-document.getElementById("words").value,
+      const rawWords =
+        document.getElementById("words").value;
 
-date:
-new Date().toLocaleDateString()
+      const taskId =
+        editingTaskId || makeId("task");
 
-});
+      const items = parseLines(rawWords, taskId);
 
+      const msg = document.getElementById("msg");
 
-localStorage.setItem(
-"tasks",
-JSON.stringify(tasks)
-);
+      if (!title) {
+        msg.textContent = "请填写任务名称。";
+        return;
+      }
 
+      if (!items.length) {
+        msg.textContent =
+          "请至少填写一条完整内容，并用 | 分隔英文和中文。";
+        return;
+      }
 
-document.getElementById("msg").innerHTML =
-"✅ 任务保存成功";
+      const now = new Date().toISOString();
 
-}
+      if (editingTaskId) {
+        const position = tasks.findIndex(
+          task => task.id === editingTaskId
+        );
 
+        const oldTask = tasks[position];
 
-</script>
+        const oldIds = new Map(
+          oldTask.items.map(item => [
+            item.english + "|" + item.chinese,
+            item.id
+          ])
+        );
 
+        items.forEach(item => {
+          item.id =
+            oldIds.get(
+              item.english + "|" + item.chinese
+            ) || item.id;
+        });
 
+        tasks[position] = {
+          ...oldTask,
+          title,
+          items,
+          updatedAt: now
+        };
+
+        msg.textContent = "✅ 任务修改成功";
+      } else {
+        tasks.push({
+          id: taskId,
+          title,
+          items,
+          date: new Date().toLocaleDateString(),
+          updatedAt: now
+        });
+
+        msg.textContent = "✅ 任务保存成功";
+      }
+
+      saveAllTasks();
+      cancelEdit(false);
+      renderTasks();
+    }
+
+    function editTask(taskId) {
+      const task = tasks.find(
+        item => item.id === taskId
+      );
+
+      if (!task) return;
+
+      editingTaskId = taskId;
+
+      document.getElementById(
+        "formHeading"
+      ).textContent = "修改学习任务";
+
+      document.getElementById(
+        "saveButton"
+      ).textContent = "保存修改";
+
+      document
+        .getElementById("cancelButton")
+        .classList.remove("hidden");
+
+      document.getElementById("title").value =
+        task.title;
+
+      document.getElementById("words").value =
+        task.items
+          .map(item =>
+            [
+              item.english,
+              item.chinese,
+              item.type
+            ]
+              .filter(Boolean)
+              .join(" | ")
+          )
+          .join("\n");
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
+    }
+
+    function cancelEdit(clearMessage = true) {
+      editingTaskId = null;
+
+      document.getElementById(
+        "formHeading"
+      ).textContent = "创建学习任务";
+
+      document.getElementById(
+        "saveButton"
+      ).textContent = "保存任务";
+
+      document
+        .getElementById("cancelButton")
+        .classList.add("hidden");
+
+      document.getElementById("title").value = "";
+      document.getElementById("words").value = "";
+
+      if (clearMessage) {
+        document.getElementById(
+          "msg"
+        ).textContent = "";
+      }
+    }
+
+    function deleteTask(taskId) {
+      const task = tasks.find(
+        item => item.id === taskId
+      );
+
+      if (
+        !task ||
+        !confirm(`确定删除“${task.title}”吗？`)
+      ) {
+        return;
+      }
+
+      tasks = tasks.filter(
+        item => item.id !== taskId
+      );
+
+      saveAllTasks();
+
+      if (editingTaskId === taskId) {
+        cancelEdit();
+      }
+
+      document.getElementById(
+        "msg"
+      ).textContent = "任务已删除。";
+
+      renderTasks();
+    }
+
+    function renderTasks() {
+      const manager =
+        document.getElementById("taskManager");
+
+      if (!tasks.length) {
+        manager.innerHTML =
+          '<p class="empty">还没有学习任务。</p>';
+        return;
+      }
+
+      manager.innerHTML = tasks
+        .map(
+          task => `
+            <article class="task-card">
+              <div class="task-header">
+                <div>
+                  <strong>${escapeHtml(
+                    task.title
+                  )}</strong>
+                  <small>
+                    ${task.items.length} 条内容
+                  </small>
+                </div>
+
+                <div class="inline-actions">
+                  <button
+                    class="small-button"
+                    type="button"
+                    onclick="editTask('${task.id}')"
+                  >
+                    修改
+                  </button>
+
+                  <button
+                    class="small-button danger"
+                    type="button"
+                    onclick="deleteTask('${task.id}')"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+
+              <ul>
+                ${task.items
+                  .map(
+                    item => `
+                      <li>
+                        <b>${escapeHtml(
+                          item.english
+                        )}</b>
+                        —
+                        ${escapeHtml(
+                          item.chinese
+                        )}
+                        ${
+                          item.type
+                            ? `<span class="tag">${escapeHtml(
+                                item.type
+                              )}</span>`
+                            : ""
+                        }
+                      </li>
+                    `
+                  )
+                  .join("")}
+              </ul>
+            </article>
+          `
+        )
+        .join("");
+    }
+
+    renderTasks();
+  </script>
 </body>
-
 </html>
